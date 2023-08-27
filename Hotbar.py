@@ -1,4 +1,5 @@
 import pygame
+from Particle_Dictionary import PD
 
 class Hotbar:
     def __init__(self, particle_types):
@@ -26,7 +27,8 @@ class Hotbar:
 
         for i, name in enumerate(self.particle_types):
             block_rect = pygame.Rect(i * scaling * 2, y_offset, scaling * 2, scaling * 2)
-            pygame.draw.rect(screen, PD[name].color, block_rect)
+            particle_data = PD[name]
+            pygame.draw.rect(screen, particle_data["color"], block_rect)
 
             if i == self.selected_particle:
                 selected_block_rect_outer = pygame.Rect(i * scaling * 2, y_offset, scaling * 2, scaling * 2)

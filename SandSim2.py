@@ -2,6 +2,7 @@ import pygame
 from pygame.locals import *
 from Particle import Particle
 from Hotbar import Hotbar
+from Particle_Dictionary import PD
 
 # Initialize pygame
 pygame.init()
@@ -18,7 +19,6 @@ pygame.display.set_caption('Sand Simulation')
 def draw_particle(particle):
     pygame.draw.rect(screen, particle.color, (particle.x * SCALING, particle.y * SCALING, SCALING, SCALING))
 
-id = 0
 particles = {}
 
 def add_particle(particle):
@@ -113,7 +113,7 @@ def main():
 
                 if event.button == 1:  # Left mouse button
                     drawing = True
-                    Particle.spawn(gridX, gridY, particle_type)
+                    add_particle(Particle.spawn(gridX, gridY, particle_type))
 
                 elif event.button == 3:  # Right mouse button
                     erasing = True
@@ -130,7 +130,7 @@ def main():
 
                 if drawing:
                     for coord in bresenham_line(prev_coord[0], prev_coord[1], gridX, gridY):
-                        Particle.spawn(coord[0], coord[1], particle_type)
+                        add_particle(Particle.spawn(coord[0], coord[1], particle_type))
 
                 if erasing:
                     for coord in bresenham_line(prev_coord[0], prev_coord[1], gridX, gridY):
