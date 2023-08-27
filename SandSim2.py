@@ -8,46 +8,73 @@ from Particle_Dictionary import PD
 pygame.init()
 
 # Constants
-SCREEN_WIDTH = 50
-SCREEN_HEIGHT = 50
+GRID_WIDTH = 50  # Size of game grid
+GRID_HEIGHT = 50  # Size of game grid
 SCALING = 10
+HOTBAR_SIZE = SCALING * 2
 
-screen = pygame.display.set_mode((SCREEN_WIDTH * SCALING, SCREEN_HEIGHT * SCALING + SCALING * 2))
+screen = pygame.display.set_mode((GRID_WIDTH * SCALING, GRID_HEIGHT * SCALING + HOTBAR_SIZE))
 
 pygame.display.set_caption('Sand Simulation')
 
-def draw_particle(particle):
-    pygame.draw.rect(screen, particle.color, (particle.x * SCALING, particle.y * SCALING, SCALING, SCALING))
+def DrawParticle(particle):
+    pygame.draw.rect(screen, particle.color, ((particle.x - 1) * SCALING, (GRID_HEIGHT - particle.y) * SCALING, SCALING, SCALING))
 
 particles = {}
 
-def add_particle(particle):
+def AddParticle(particle):
     global particles
     key = (particle.x, particle.y)
     particles[key] = particle
 
-def get_particle(x, y):
+def GetParticle(x, y):
     global particles
     key = (x, y)
     return particles.get(key, None)
 
-def remove_particle(x, y):
+def RemoveParticle(x, y):
     global particles
     key = (x, y)
     if key in particles:
         del particles[key]
 
 def CursorLocation(actual_x, actual_y):
-    return actual_x // SCALING, actual_y // SCALING
+    # Inside game grid
+    if 0 <= actual_x < GRID_WIDTH * SCALING and 0 <= actual_y < GRID_HEIGHT * SCALING:
+        x = actual_x // SCALING + 1
+        y = (GRID_HEIGHT * SCALING - actual_y) // SCALING + 1
+        return x, y
+    return -1, -1
 
-def BrushStroke(x, y, particle_name):
-    if particle_name == "Air":
-        remove_particle(x, y)
-    else:
-        add_particle(Particle.spawn(x, y, particle_name))
+def DrawBrushOutline(screen, hotbar, scaling, grid_height):
+    actual_mouse_x, actual_mouse_y = pygame.mouse.get_pos()
+    mouse_x, mouse_y = CursorLocation(actual_mouse_x, actual_mouse_y)
+
+    # Don't draw outline if position is outside game grid
+    if mouse_x < 0 or mouse_y < 0:
+        return
+
+    brush_size = hotbar.brush_size
+    brush_rect = pygame.Rect((mouse_x - brush_size) * scaling, 
+                                (grid_height - mouse_y - brush_size + 1) * scaling, 
+                                (2 * brush_size - 1) * scaling, 
+                                (2 * brush_size - 1) * scaling)
+    pygame.draw.rect(screen, (255, 255, 255), brush_rect, 1)
+
+def BrushStroke(x, y, particle_name, size, erasing):
+    # Outside game grid
+    if x < 0 or y < 0:
+        return
+    
+    for dx in range(x + 1 - size, x + size): 
+        for dy in range(y + 1 - size, y + size):
+            if erasing:
+                RemoveParticle(dx, dy)
+            else:
+                AddParticle(Particle.spawn(dx, dy, particle_name))
 
 # Bresenham's Line Algorithm to draw a line between two points
-def bresenham_line(x0, y0, x1, y1):
+def BresenhamLine(x0, y0, x1, y1):
     points = []
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
@@ -71,7 +98,7 @@ def bresenham_line(x0, y0, x1, y1):
 
 def main():
     running = True
-    simulation_running = False  # This variable will toggle with the SPACE key
+    simulation_running = True  # This variable will toggle with the SPACE key
     drawing = False
     erasing = False
     prev_coord = None
@@ -85,7 +112,7 @@ def main():
         
         # Draw all particles
         for particle in particles.values():
-            draw_particle(particle)
+            DrawParticle(particle)
         
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -108,16 +135,16 @@ def main():
                     hotbar.select_previous_block()
             elif event.type == MOUSEBUTTONDOWN:
                 mouseX, mouseY = event.pos
-                gridX, gridY = mouseX // SCALING, mouseY // SCALING
+                gridX, gridY = CursorLocation(mouseX, mouseY)
                 prev_coord = (gridX, gridY)
 
                 if event.button == 1:  # Left mouse button
                     drawing = True
-                    add_particle(Particle.spawn(gridX, gridY, particle_type))
+                    BrushStroke(gridX, gridY, particle_type, hotbar.brush_size, 0)
 
                 elif event.button == 3:  # Right mouse button
                     erasing = True
-                    remove_particle(gridX, gridY)
+                    BrushStroke(gridX, gridY, particle_type, hotbar.brush_size, 1)
             elif event.type == MOUSEBUTTONUP:
                 if event.button == 1:
                     drawing = False
@@ -126,19 +153,24 @@ def main():
                 prev_coord = None
             elif event.type == MOUSEMOTION and prev_coord:
                 mouseX, mouseY = event.pos
-                gridX, gridY = mouseX // SCALING, mouseY // SCALING
+                gridX, gridY = CursorLocation(mouseX, mouseY)
+
+                # Check if either the new cursor position or the previous position is invalid
+                if (gridX, gridY) == (-1, -1) or prev_coord == (-1, -1):
+                    continue
 
                 if drawing:
-                    for coord in bresenham_line(prev_coord[0], prev_coord[1], gridX, gridY):
-                        add_particle(Particle.spawn(coord[0], coord[1], particle_type))
+                    for coord in BresenhamLine(prev_coord[0], prev_coord[1], gridX, gridY):
+                        BrushStroke(coord[0], coord[1], particle_type, hotbar.brush_size, 0)
 
                 if erasing:
-                    for coord in bresenham_line(prev_coord[0], prev_coord[1], gridX, gridY):
-                        remove_particle(coord[0], coord[1])
+                    for coord in BresenhamLine(prev_coord[0], prev_coord[1], gridX, gridY):
+                        BrushStroke(coord[0], coord[1], particle_type, hotbar.brush_size, 1)
 
                 prev_coord = (gridX, gridY)
 
-        hotbar.draw(screen, SCREEN_WIDTH, SCREEN_HEIGHT, SCALING)
+        DrawBrushOutline(screen, hotbar, SCALING, GRID_HEIGHT)
+        hotbar.draw(screen, GRID_WIDTH, GRID_HEIGHT, SCALING)
         pygame.display.flip()
     pygame.quit()
 
