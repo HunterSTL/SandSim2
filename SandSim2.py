@@ -1,17 +1,13 @@
 import pygame
 from pygame.locals import *
-from Particle import Particle
+from Particle import *
 from Hotbar import Hotbar
 from Particle_Dictionary import PD
+from SimulationLogic import SimulateParticles
+from Constants import *
 
 # Initialize pygame
 pygame.init()
-
-# Constants
-GRID_WIDTH = 50  # Size of game grid
-GRID_HEIGHT = 50  # Size of game grid
-SCALING = 10
-HOTBAR_SIZE = SCALING * 2
 
 screen = pygame.display.set_mode((GRID_WIDTH * SCALING, GRID_HEIGHT * SCALING + HOTBAR_SIZE))
 
@@ -19,24 +15,6 @@ pygame.display.set_caption('Sand Simulation')
 
 def DrawParticle(particle):
     pygame.draw.rect(screen, particle.color, ((particle.x - 1) * SCALING, (GRID_HEIGHT - particle.y) * SCALING, SCALING, SCALING))
-
-particles = {}
-
-def AddParticle(particle):
-    global particles
-    key = (particle.x, particle.y)
-    particles[key] = particle
-
-def GetParticle(x, y):
-    global particles
-    key = (x, y)
-    return particles.get(key, None)
-
-def RemoveParticle(x, y):
-    global particles
-    key = (x, y)
-    if key in particles:
-        del particles[key]
 
 def CursorLocation(actual_x, actual_y):
     # Inside game grid
@@ -105,15 +83,19 @@ def main():
     
     block_types = list(PD.keys())  
     hotbar = Hotbar(block_types)
+    clock = pygame.time.Clock()
 
     while running:
         screen.fill((0, 0, 0))
-        particle_type = hotbar.selected_particle_name
         
+        # Simulate all particles
+        SimulateParticles(particles)
+
         # Draw all particles
         for particle in particles.values():
             DrawParticle(particle)
-        
+
+        # Handle user input
         for event in pygame.event.get():
             if event.type == QUIT:
                 running = False
@@ -140,11 +122,11 @@ def main():
 
                 if event.button == 1:  # Left mouse button
                     drawing = True
-                    BrushStroke(gridX, gridY, particle_type, hotbar.brush_size, 0)
+                    BrushStroke(gridX, gridY, hotbar.selected_particle_name, hotbar.brush_size, 0)
 
                 elif event.button == 3:  # Right mouse button
                     erasing = True
-                    BrushStroke(gridX, gridY, particle_type, hotbar.brush_size, 1)
+                    BrushStroke(gridX, gridY, hotbar.selected_particle_name, hotbar.brush_size, 1)
             elif event.type == MOUSEBUTTONUP:
                 if event.button == 1:
                     drawing = False
@@ -161,17 +143,18 @@ def main():
 
                 if drawing:
                     for coord in BresenhamLine(prev_coord[0], prev_coord[1], gridX, gridY):
-                        BrushStroke(coord[0], coord[1], particle_type, hotbar.brush_size, 0)
+                        BrushStroke(coord[0], coord[1], hotbar.selected_particle_name, hotbar.brush_size, 0)
 
                 if erasing:
                     for coord in BresenhamLine(prev_coord[0], prev_coord[1], gridX, gridY):
-                        BrushStroke(coord[0], coord[1], particle_type, hotbar.brush_size, 1)
+                        BrushStroke(coord[0], coord[1], hotbar.selected_particle_name, hotbar.brush_size, 1)
 
                 prev_coord = (gridX, gridY)
 
         DrawBrushOutline(screen, hotbar, SCALING, GRID_HEIGHT)
         hotbar.draw(screen, GRID_WIDTH, GRID_HEIGHT, SCALING)
         pygame.display.flip()
+        clock.tick(60)
     pygame.quit()
 
 if __name__ == "__main__":

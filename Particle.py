@@ -3,6 +3,24 @@ from Particle_Dictionary import PD
 
 id = 0
 
+particles = {}
+
+def AddParticle(particle):
+    global particles
+    key = (particle.x, particle.y)
+    particles[key] = particle
+
+def GetParticle(x, y):
+    global particles
+    key = (x, y)
+    return particles.get(key, None)
+
+def RemoveParticle(x, y):
+    global particles
+    key = (x, y)
+    if key in particles:
+        del particles[key]
+
 class Particle:
     def __init__(self, x, y, name, id, color, lifetime, burning, state):
         self.x = x
